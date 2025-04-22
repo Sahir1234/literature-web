@@ -1,0 +1,12 @@
+"games" : {
+    "GAME_ID" : {
+        "players": {
+            "PLAYER_NAME" : {
+                "playerName" : "string",
+                "team" : true,
+                "uid" : "asdfgrfd"
+            }
+        }
+    }
+
+}

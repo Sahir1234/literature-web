@@ -20,6 +20,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <ToastContainer 
+          autoClose={3000}
           hideProgressBar={true}
           closeOnClick
           pauseOnHover={false}

@@ -52,3 +52,10 @@ export default tseslint.config({
   },
 })
 ```
+
+
+TO-DOs:
+
+Local Storage stuff
+TTLs for firebase
+All the game logic

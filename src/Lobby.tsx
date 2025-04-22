@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Lobby: React.FC = () => {
-  const { lobbyId } = useParams();
   const navigate = useNavigate();
 
   // Static player data for illustration (replace with real data if needed)
-  const [players, setPlayers] = useState<string[]>(['Player1', 'Player2']);
-  const [isHost, setIsHost] = useState(true); // Assume the first player is the host for now
+  const [players] = useState<string[]>(['Player1', 'Player2']);
+  const [isHost] = useState(true); // Assume the first player is the host for now
   const [isReady, setIsReady] = useState(false);
 
   // This function is for the "Start Game" button, which only the host can press
@@ -21,8 +20,11 @@ const Lobby: React.FC = () => {
   return (
     <div 
     className="container d-flex flex-column justify-content-center align-items-center min-vh-100">
-      <div className="card p-4" style={{ width: '100%', maxWidth: '500px' }}>
-        <h2 className="text-center">Lobby: {lobbyId}</h2>
+      <div 
+      className="p-4 bg-light bg-opacity-10 border border-white border-2 rounded-4 shadow-lg text-white" 
+      style={{ maxWidth: '600px', width: '100%', marginTop: '-200px'}}
+      >
+        <h2 className="text-center">Game: 6</h2>
 
         <ul className="list-group my-3">
           {players.map((player, index) => (

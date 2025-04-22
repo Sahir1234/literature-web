@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 
-function Home() {
+const Home: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
 
@@ -13,43 +13,43 @@ function Home() {
 
     if (gameId.length > 10) {
       toast.error("Game ID must be 10 characters or fewer.");
-      return false;
     }
 
     return true;
   };
 
-  const doesGameExist = async (gameId: string) => {
-    // Simulate a check to see if the game exists
-
-    return true;
-  }
-
-  const handleJoinGame = () => {
+  const handleJoinGame = async () => {
     console.log(`Joining game: ${gameId} as ${playerName}`);
 
     if (!validateInputsWithErrorAlert(playerName, gameId)) {
       return;
     };
 
-    // check that game exists and does not have this player already:
-    // catch error from firebase and show toast error
+    
+    toast.error("Game ID does not exist. Please enter a valid game.");
+    toast.error("Player with the same name has already joined. Please pick a new name.");
+    toast.error("The selected game is full. Please join a different game.");
 
+    // create UUID for this player
+    // join game as this player
+    // persist local storage with gameId and playerName and UUID
+    // redrirect them to the lobby page
   };
 
-  const handleCreateGame = () => {
+  const handleCreateGame = async () => {
     console.log(`Creating new game as ${playerName} with ID: ${gameId}`);
 
     if (!validateInputsWithErrorAlert(playerName, gameId)) {
       return;
     };
 
-    if (!doesGameExist(gameId)) {
-      toast.error("Game ID is already being used. Please choose a different one.");
-      return;
-    }
+    toast.error("Game ID is currently in use. Please enter a new game ID.");
 
-    // create game with this player as host
+    // Check if the game ID already exists
+    // create UUID for this player
+    // create game with call to datastore
+    // persist local storage with gameId and playerName and UUID
+    // redirect them to the lobby page
   };
 
   return (
@@ -67,7 +67,7 @@ function Home() {
             className="form-control" 
             id="playerName" 
             value={playerName} 
-            onChange={(e) => setPlayerName(e.target.value)} 
+            onChange={(e) => setPlayerName(e.target.value.toUpperCase())} 
             placeholder="Enter your name"
           />
         </div>
@@ -79,21 +79,21 @@ function Home() {
             className="form-control" 
             id="gameId" 
             value={gameId} 
-            onChange={(e) => setGameId(e.target.value)} 
+            onChange={(e) => setGameId(e.target.value.toUpperCase())} 
             placeholder="Enter Game ID"
           />
         </div>
 
         <div className="d-flex justify-content-between">
           <button 
-            className="btn btn-success w-48" 
+            className="btn btn-outline-light w-48" 
             onClick={handleCreateGame}
             disabled={!playerName || !gameId}
           >
             Create Game
           </button>
           <button 
-            className="btn btn-primary w-48" 
+            className="btn btn-outline-light w-48" 
             onClick={handleJoinGame}
             disabled={!playerName || !gameId}
           >

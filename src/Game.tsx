@@ -6,8 +6,8 @@ const Game: React.FC = () => {
   const navigate = useNavigate();
 
   // Static player data for illustration (replace with real data if needed)
-  const [players, setPlayers] = useState<string[]>(['Player1', 'Player2']);
-  const [isHost, setIsHost] = useState(true); // Assume the first player is the host for now
+  const [players] = useState<string[]>(['Player1', 'Player2']);
+  const [isHost] = useState(true); // Assume the first player is the host for now
   const [isReady, setIsReady] = useState(false);
 
   // This function is for the "Start Game" button, which only the host can press
