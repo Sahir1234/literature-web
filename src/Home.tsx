@@ -1,56 +1,84 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { createGame, joinGame } from '../firebase';
+import { v4 as uuidv4 } from 'uuid';
+import { BackendResponse } from './utils/BackendResponse';
+import { 
+  INVALID_INPUT_MESSAGE, 
+  SUCCESSFUL_GAME_INIT_MESSAGE, 
+  UNKNOWN_ERROR_MESSAGE 
+} from './utils/AlertMessages';
+import { MAX_NAME_LENGTH, MAX_GAME_ID_LENGTH } from './utils/Configs';
+import { setLocalStorageData } from './utils/LocalStorageHandler';
+
+interface HomePageData {
+  gameId: string;
+  playerName: string;
+  uid: string;
+}
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
+
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
 
-  const validateInputsWithErrorAlert = (playerName: string, gameId: string) => {
-    if (playerName.length > 10) {
-      toast.error("Player name must be 10 characters or fewer.");
-      return false;
-    }
+  const handleCreateGame = async () => {
 
-    if (gameId.length > 10) {
-      toast.error("Game ID must be 10 characters or fewer.");
+    try {
+      if (!areInputsValid(playerName, gameId)) {
+        toast.error(INVALID_INPUT_MESSAGE);
+        return;
+      };
+  
+      const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
+      const response = await createGame(homePageData) as BackendResponse;
+      handleBackendResponse(response, homePageData);
+      
+    } catch (error) {
+      handleUnknownError(error);
     }
-
-    return true;
   };
 
   const handleJoinGame = async () => {
-    console.log(`Joining game: ${gameId} as ${playerName}`);
+    try {
+      if (!areInputsValid(playerName, gameId)) {
+        toast.error(INVALID_INPUT_MESSAGE);
+        return;
+      };
 
-    if (!validateInputsWithErrorAlert(playerName, gameId)) {
-      return;
-    };
+      const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
+      const response = await joinGame(homePageData) as BackendResponse;
+      handleBackendResponse(response, homePageData);
 
-    
-    toast.error("Game ID does not exist. Please enter a valid game.");
-    toast.error("Player with the same name has already joined. Please pick a new name.");
-    toast.error("The selected game is full. Please join a different game.");
-
-    // create UUID for this player
-    // join game as this player
-    // persist local storage with gameId and playerName and UUID
-    // redrirect them to the lobby page
+    } catch (error) {
+      handleUnknownError(error);
+    }
   };
 
-  const handleCreateGame = async () => {
-    console.log(`Creating new game as ${playerName} with ID: ${gameId}`);
-
-    if (!validateInputsWithErrorAlert(playerName, gameId)) {
-      return;
-    };
-
-    toast.error("Game ID is currently in use. Please enter a new game ID.");
-
-    // Check if the game ID already exists
-    // create UUID for this player
-    // create game with call to datastore
-    // persist local storage with gameId and playerName and UUID
-    // redirect them to the lobby page
+  const areInputsValid = (playerName: string, gameId: string) => {
+    return playerName.length <= MAX_NAME_LENGTH && gameId.length <= MAX_GAME_ID_LENGTH;
   };
+
+  const handleBackendResponse = (response: BackendResponse, homePageData: HomePageData)  => {
+    if (response.data.succeeded) {
+      handleSuccessfulGameInit(homePageData);
+    } else {
+      toast.error(response.data.message);
+    }
+  }
+
+  const handleSuccessfulGameInit = (homePageData: HomePageData) => {
+    setLocalStorageData(homePageData.gameId, homePageData.playerName, homePageData.uid);
+    toast.success(SUCCESSFUL_GAME_INIT_MESSAGE);
+    navigate('/lobby');
+  }
+
+  const handleUnknownError = (error: any) => {
+    console.error("Error: ", error);
+    toast.error(UNKNOWN_ERROR_MESSAGE);
+  }
 
   return (
     <div className="container d-flex justify-content-center align-items-center min-vh-100">

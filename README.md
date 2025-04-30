@@ -56,6 +56,14 @@ export default tseslint.config({
 
 TO-DOs:
 
+Next thing to do is to finish creating the firebase functions for the create game and join game (they should implement the validation and the read and write to the db)
+
 Local Storage stuff
+- need to think through how we clear it if someone just leaves the browser
+- set react components on initialization
+- add stuff about switching URLs based on the local storage and checking the UUID
+- ttl for the local storage (or handling for it?)
 TTLs for firebase
 All the game logic
+
+MAKE A NOTE ABOUT ENABLING LOCAL DEV VIA FIREBASE CONFIG
