@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { createGame, joinGame } from '../firebase';
+import { createGame, joinGame, homePageRedirect } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { BackendResponse } from './utils/BackendResponse';
 import { 
@@ -10,7 +10,14 @@ import {
   UNKNOWN_ERROR_MESSAGE 
 } from './utils/AlertMessages';
 import { MAX_NAME_LENGTH, MAX_GAME_ID_LENGTH } from './utils/Configs';
-import { setLocalStorageData } from './utils/LocalStorageHandler';
+import {
+  getLocalStorageGameId,
+  getLocalStoragePlayerName,
+  getLocalStorageUid, 
+  setLocalStorageData, 
+  clearLocalStorageData, 
+  isLocalStorageDataPresent,
+} from './utils/LocalStorageHandler';
 
 interface HomePageData {
   gameId: string;
@@ -24,37 +31,59 @@ const Home: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
 
-  const handleCreateGame = async () => {
+  useEffect(() => { redirectPageIfAlreadyInGame() }, []);
 
-    try {
-      if (!areInputsValid(playerName, gameId)) {
-        toast.error(INVALID_INPUT_MESSAGE);
-        return;
-      };
-  
-      const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
-      const response = await createGame(homePageData) as BackendResponse;
-      handleBackendResponse(response, homePageData);
-      
-    } catch (error) {
-      handleUnknownError(error);
+  const redirectPageIfAlreadyInGame = () => {
+    if (!isLocalStorageDataPresent()) {
+      // clear local storage as a sanity check
+      clearLocalStorageData();
+      return;
     }
+
+    const localStorageGameId = getLocalStorageGameId();
+    const localStoragePlayerName = getLocalStoragePlayerName();
+    const localStorageUid = getLocalStorageUid();
+
+    homePageRedirect( { gameId: localStorageGameId, playerName: localStoragePlayerName, uid: localStorageUid } ).then((data) => {
+      const response = data as BackendResponse;
+      if (response.data.succeeded) {
+        navigate('/' + response.data.message);
+      } else {
+        clearLocalStorageData();
+      }
+    }).catch((error: any) => {
+      handleUnknownError(error);
+    });
+  }
+  
+  const handleCreateGame = () => {
+    if (!areInputsValid(playerName, gameId)) {
+      toast.error(INVALID_INPUT_MESSAGE);
+      return;
+    };
+
+    const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
+    createGame(homePageData).then((data) => {
+      const response = data as BackendResponse;
+      handleBackendResponse(response, homePageData);
+    }).catch((error: any) => {
+      handleUnknownError(error);
+    });
   };
 
-  const handleJoinGame = async () => {
-    try {
-      if (!areInputsValid(playerName, gameId)) {
-        toast.error(INVALID_INPUT_MESSAGE);
-        return;
-      };
+  const handleJoinGame = () => {
+    if (!areInputsValid(playerName, gameId)) {
+      toast.error(INVALID_INPUT_MESSAGE);
+      return;
+    };
 
-      const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
-      const response = await joinGame(homePageData) as BackendResponse;
+    const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
+    joinGame(homePageData).then((data) => {
+      const response = data as BackendResponse;
       handleBackendResponse(response, homePageData);
-
-    } catch (error) {
+    }).catch((error: any) => {
       handleUnknownError(error);
-    }
+    });
   };
 
   const areInputsValid = (playerName: string, gameId: string) => {
