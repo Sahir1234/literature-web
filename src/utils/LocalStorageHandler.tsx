@@ -1,3 +1,4 @@
+import { ClientData } from "./ClientData";
 
 export const isLocalStorageDataPresent = () => {
     const gameId = localStorage.getItem('gameId');
@@ -7,30 +8,18 @@ export const isLocalStorageDataPresent = () => {
     return gameId !== null && playerName !== null && uid !== null;
 }
 
-export const setLocalStorageData = (gameId: string, playerName: string, uid: string) => {
-    localStorage.setItem('gameId', gameId);
-    localStorage.setItem('playerName', playerName);
-    localStorage.setItem('uid', uid);
+export const setLocalStorageData = (clientData: ClientData) => {
+    localStorage.setItem('gameId', clientData.gameId);
+    localStorage.setItem('playerName', clientData.playerName);
+    localStorage.setItem('uid', clientData.uid);
 };
 
-export const getLocalStorageGameId = () => {
-    return localStorage.getItem('gameId');
-}
-
-export const getLocalStoragePlayerName = () => {
-    return localStorage.getItem('playerName');
-}
-
-export const getLocalStorageUid = () => {
-    return localStorage.getItem('uid');
-}
-
 export const getLocalStorageData = () => {
-    const gameId = localStorage.getItem('gameId');
-    const playerName = localStorage.getItem('playerName');
-    const uid = localStorage.getItem('uid');
-
-    return { gameId, playerName, uid };
+    return {
+        gameId: localStorage.getItem('gameId'),
+        playerName: localStorage.getItem('playerName'),
+        uid: localStorage.getItem('uid')
+    }
 }
 
 export const clearLocalStorageData = () => {

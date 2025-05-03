@@ -1,21 +1,62 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { leaveLobby, switchTeams } from '../firebase';
+import { clearLocalStorageData, getLocalStorageData, isLocalStorageDataPresent } from './utils/LocalStorageHandler';
+import { BackendResponse } from './utils/BackendResponse';
+import { UNKNOWN_ERROR_MESSAGE } from './utils/AlertMessages';
 
 const Lobby: React.FC = () => {
   const navigate = useNavigate();
 
   // Static player data for illustration (replace with real data if needed)
   const [players] = useState<string[]>(['Player1', 'Player2']);
-  const [isHost] = useState(true); // Assume the first player is the host for now
-  const [isReady, setIsReady] = useState(false);
 
-  // This function is for the "Start Game" button, which only the host can press
-  const handleStartGame = () => {
-    if (isHost && players.length >= 4) {
-      setIsReady(true);
-      alert("Game Started!"); // This could be a navigation to the game page or a different action
-    }
+  const handleSwitchTeams = () => {
+    verifyLocalStorageData();
+
+    switchTeams( getLocalStorageData() ).then((data) => {  
+      const response = data as BackendResponse;
+      if (response.data.succeeded) {
+        toast.success(response.data.message);
+      } else {
+        toast.error(response.data.message);
+      }
+    }).catch((error: any) => {
+      handleUnknownError(error);
+    });
+  }
+
+  const handleLeaveLobby = () => {
+    verifyLocalStorageData();
+
+    leaveLobby( getLocalStorageData() ).then((data) => {
+      const response = data as BackendResponse;
+
+      if (response.data.succeeded) {
+        toast.success(response.data.message);
+        clearLocalStorageData();
+        navigate("/");
+      } else {
+        toast.error(response.data.message);
+      }
+    }).catch((error: any) => {
+      handleUnknownError(error);
+    });
   };
+
+  const verifyLocalStorageData = () => {
+    if (!isLocalStorageDataPresent()) {
+      clearLocalStorageData();
+      navigate("/");
+      return;
+    }
+  }
+
+  const handleUnknownError = (error: any) => {
+    console.error("Error: ", error);
+    toast.error(UNKNOWN_ERROR_MESSAGE);
+  }
 
   return (
     <div 
@@ -41,14 +82,12 @@ const Lobby: React.FC = () => {
             : "Ready to start!"}
         </p>
 
-        {isHost && players.length >= 4 && !isReady && (
-          <button className="btn btn-success w-100 my-2" onClick={handleStartGame}>
-            Start Game
-          </button>
-        )}
+        <button className="btn btn-outline-light w-100" onClick={() => handleSwitchTeams()}>
+          Switch Teams
+        </button>
 
-        <button className="btn btn-outline-light w-100" onClick={() => navigate("/")}>
-          Leave Lobby
+        <button className="btn btn-outline-light w-100" onClick={() => handleLeaveLobby()}>
+          Leave Game
         </button>
       </div>
     </div>

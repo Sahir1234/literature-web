@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { createGame, joinGame, homePageRedirect } from '../firebase';
+import { ref, get } from 'firebase/database';
+import { createGame, joinGame, rtdb } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
 import { BackendResponse } from './utils/BackendResponse';
+import { ClientData } from './utils/ClientData';
 import { 
   INVALID_INPUT_MESSAGE, 
   SUCCESSFUL_GAME_INIT_MESSAGE, 
@@ -11,78 +13,112 @@ import {
 } from './utils/AlertMessages';
 import { MAX_NAME_LENGTH, MAX_GAME_ID_LENGTH } from './utils/Configs';
 import {
-  getLocalStorageGameId,
-  getLocalStoragePlayerName,
-  getLocalStorageUid, 
+  getLocalStorageData,
   setLocalStorageData, 
   clearLocalStorageData, 
-  isLocalStorageDataPresent,
+  isLocalStorageDataPresent
 } from './utils/LocalStorageHandler';
-
-interface HomePageData {
-  gameId: string;
-  playerName: string;
-  uid: string;
-}
+import { GameData, GameStatus } from './utils/GameData';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
 
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
+  const [areButtonsDisabled, setButtonsDisabled] = useState(false);
 
   useEffect(() => { redirectPageIfAlreadyInGame() }, []);
 
   const redirectPageIfAlreadyInGame = () => {
+
     if (!isLocalStorageDataPresent()) {
       // clear local storage as a sanity check
       clearLocalStorageData();
       return;
     }
 
-    const localStorageGameId = getLocalStorageGameId();
-    const localStoragePlayerName = getLocalStoragePlayerName();
-    const localStorageUid = getLocalStorageUid();
-
-    homePageRedirect( { gameId: localStorageGameId, playerName: localStoragePlayerName, uid: localStorageUid } ).then((data) => {
-      const response = data as BackendResponse;
-      if (response.data.succeeded) {
-        navigate('/' + response.data.message);
-      } else {
+    const localData = getLocalStorageData() as ClientData;
+    const rtData = ref(rtdb, `GAMES/${localData.gameId}`);
+    get(rtData).then((snapshot) => {
+      if (!snapshot.exists()) {
+        // clear local storage since it doesn't match a new game
         clearLocalStorageData();
+        return;
       }
-    }).catch((error: any) => {
-      handleUnknownError(error);
+
+      const gameData = snapshot.val() as GameData;
+      
+      if (!isPlayerInGame(gameData, localData.playerName, localData.uid)) {
+        clearLocalStorageData();
+        return;
+      }  
+
+      const gameStatus = gameData.status;
+      handleGameStatus(gameStatus);
+
+    }).catch((error) => {
+      console.error("Error fetching game data: ", error);
+      toast.error(UNKNOWN_ERROR_MESSAGE);
     });
   }
-  
+
+  const isPlayerInGame = (gameData: GameData, playerName: string, uid: string) => {
+    const players = gameData.players;
+    const playerData = players[playerName];
+    return playerData && playerData.uid === uid;
+  }
+
+  const handleGameStatus = (gameStatus: GameStatus) => {
+    switch (gameStatus) {
+      case GameStatus.IN_LOBBY:
+        navigate('/lobby');
+        break;
+      case GameStatus.IN_PROGRESS:
+        navigate('/game');
+        break;
+      case GameStatus.GAME_OVER:
+        clearLocalStorageData();
+        break;
+      default:
+        console.error("Unknown game status: ", gameStatus);
+    }
+  }
+
   const handleCreateGame = () => {
+    setButtonsDisabled(true);
+
     if (!areInputsValid(playerName, gameId)) {
       toast.error(INVALID_INPUT_MESSAGE);
       return;
     };
 
-    const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
-    createGame(homePageData).then((data) => {
+    const clientData: ClientData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
+    createGame(clientData).then((data) => {
       const response = data as BackendResponse;
-      handleBackendResponse(response, homePageData);
+      handleBackendResponse(response, clientData);
     }).catch((error: any) => {
       handleUnknownError(error);
+    }).finally(() => {
+      setButtonsDisabled(false);
     });
-  };
+  }
 
   const handleJoinGame = () => {
+    setButtonsDisabled(true);
+
     if (!areInputsValid(playerName, gameId)) {
       toast.error(INVALID_INPUT_MESSAGE);
       return;
     };
 
-    const homePageData: HomePageData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
-    joinGame(homePageData).then((data) => {
+    const clientData: ClientData = { gameId: gameId, playerName: playerName, uid: uuidv4() };
+    joinGame(clientData).then((data) => {
       const response = data as BackendResponse;
-      handleBackendResponse(response, homePageData);
+      handleBackendResponse(response, clientData);
     }).catch((error: any) => {
       handleUnknownError(error);
+    }).finally(() => {
+      setButtonsDisabled(false);
     });
   };
 
@@ -90,16 +126,16 @@ const Home: React.FC = () => {
     return playerName.length <= MAX_NAME_LENGTH && gameId.length <= MAX_GAME_ID_LENGTH;
   };
 
-  const handleBackendResponse = (response: BackendResponse, homePageData: HomePageData)  => {
+  const handleBackendResponse = (response: BackendResponse, clientData: ClientData)  => {
     if (response.data.succeeded) {
-      handleSuccessfulGameInit(homePageData);
+      handleSuccessfulGameInit(clientData);
     } else {
       toast.error(response.data.message);
     }
   }
 
-  const handleSuccessfulGameInit = (homePageData: HomePageData) => {
-    setLocalStorageData(homePageData.gameId, homePageData.playerName, homePageData.uid);
+  const handleSuccessfulGameInit = (clientData: ClientData) => {
+    setLocalStorageData(clientData);
     toast.success(SUCCESSFUL_GAME_INIT_MESSAGE);
     navigate('/lobby');
   }
@@ -145,14 +181,14 @@ const Home: React.FC = () => {
           <button 
             className="btn btn-outline-light w-48" 
             onClick={handleCreateGame}
-            disabled={!playerName || !gameId}
+            disabled={areButtonsDisabled || !playerName || !gameId}
           >
             Create Game
           </button>
           <button 
             className="btn btn-outline-light w-48" 
             onClick={handleJoinGame}
-            disabled={!playerName || !gameId}
+            disabled={areButtonsDisabled || !playerName || !gameId}
           >
             Join Game
           </button>
