@@ -4,24 +4,25 @@ import { toast } from 'react-toastify';
 import { ref, get } from 'firebase/database';
 import { createGame, joinGame, rtdb } from '../firebase';
 import { v4 as uuidv4 } from 'uuid';
-import { BackendResponse } from './utils/BackendResponse';
-import { ClientData } from './utils/ClientData';
+import { BackendResponse } from './model/BackendResponse';
+import { ClientData } from './model/ClientData';
 import { 
-  INVALID_INPUT_MESSAGE, 
-  SUCCESSFUL_GAME_INIT_MESSAGE, 
+  INVALID_INPUT_MESSAGE,
   UNKNOWN_ERROR_MESSAGE 
 } from './utils/AlertMessages';
-import { MAX_NAME_LENGTH, MAX_GAME_ID_LENGTH } from './utils/Configs';
 import {
   getLocalStorageData,
   setLocalStorageData, 
   clearLocalStorageData, 
   isLocalStorageDataPresent
 } from './utils/LocalStorageHandler';
-import { GameData, GameStatus } from './utils/GameData';
+import { GameData, GameStatus, MAX_GAME_ID_LENGTH, MAX_NAME_LENGTH } from './model/GameData';
+import { handleUnknownError, isPlayerInGame } from './utils/Utils';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+
+
 
   const [playerName, setPlayerName] = useState('');
   const [gameId, setGameId] = useState('');
@@ -47,13 +48,13 @@ const Home: React.FC = () => {
       }
 
       const gameData = snapshot.val() as GameData;
-      
+
       if (!isPlayerInGame(gameData, localData.playerName, localData.uid)) {
         clearLocalStorageData();
         return;
       }  
 
-      const gameStatus = gameData.status;
+      const gameStatus = gameData.public.status;
       handleGameStatus(gameStatus);
 
     }).catch((error) => {
@@ -62,11 +63,6 @@ const Home: React.FC = () => {
     });
   }
 
-  const isPlayerInGame = (gameData: GameData, playerName: string, uid: string) => {
-    const players = gameData.players;
-    const playerData = players[playerName];
-    return playerData && playerData.uid === uid;
-  }
 
   const handleGameStatus = (gameStatus: GameStatus) => {
     switch (gameStatus) {
@@ -76,11 +72,8 @@ const Home: React.FC = () => {
       case GameStatus.IN_PROGRESS:
         navigate('/game');
         break;
-      case GameStatus.GAME_OVER:
-        clearLocalStorageData();
-        break;
       default:
-        console.error("Unknown game status: ", gameStatus);
+        clearLocalStorageData();
     }
   }
 
@@ -128,22 +121,14 @@ const Home: React.FC = () => {
 
   const handleBackendResponse = (response: BackendResponse, clientData: ClientData)  => {
     if (response.data.succeeded) {
-      handleSuccessfulGameInit(clientData);
+      setLocalStorageData(clientData);
+      toast.success(response.data.message);
+      navigate('/lobby');
     } else {
       toast.error(response.data.message);
     }
   }
 
-  const handleSuccessfulGameInit = (clientData: ClientData) => {
-    setLocalStorageData(clientData);
-    toast.success(SUCCESSFUL_GAME_INIT_MESSAGE);
-    navigate('/lobby');
-  }
-
-  const handleUnknownError = (error: any) => {
-    console.error("Error: ", error);
-    toast.error(UNKNOWN_ERROR_MESSAGE);
-  }
 
   return (
     <div className="container d-flex justify-content-center align-items-center min-vh-100">
@@ -165,7 +150,7 @@ const Home: React.FC = () => {
           />
         </div>
         
-        <div className="mb-3">
+        <div className="mb-4">
           <label htmlFor="gameId" className="form-label">Game ID</label>
           <input 
             type="text" 
@@ -177,16 +162,16 @@ const Home: React.FC = () => {
           />
         </div>
 
-        <div className="d-flex justify-content-between">
+        <div className="d-flex justify-content-between mt-4">
           <button 
-            className="btn btn-outline-light w-48" 
+            className="btn btn-outline-success w-48" 
             onClick={handleCreateGame}
             disabled={areButtonsDisabled || !playerName || !gameId}
           >
             Create Game
           </button>
           <button 
-            className="btn btn-outline-light w-48" 
+            className="btn btn-outline-warning w-48" 
             onClick={handleJoinGame}
             disabled={areButtonsDisabled || !playerName || !gameId}
           >

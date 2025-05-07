@@ -1,4 +1,4 @@
-import { ClientData } from "./ClientData";
+import { ClientData } from "../model/ClientData";
 
 export const isLocalStorageDataPresent = () => {
     const gameId = localStorage.getItem('gameId');
