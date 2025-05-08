@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { get, ref, onValue } from "firebase/database";
-import { leaveLobby, switchTeams, rtdb, startGame } from '../firebase';
-import { clearLocalStorageData, getLocalStorageData, isLocalStorageDataPresent } from './utils/LocalStorageHandler';
-import { BackendResponse } from './model/BackendResponse';
-import { NEED_EQUAL_TEAMS, NOT_ENOUGH_PLAYERS, TOO_MANY_PLAYERS, UNKNOWN_ERROR_MESSAGE } from './utils/AlertMessages';
-import { GameStatus, MAX_PLAYERS, MIN_PLAYERS, PlayerData, PublicGameData } from './model/GameData';
-import { handleBackendResponse, handleUnknownError } from './utils/Utils';
+import { ref, onValue } from "firebase/database";
+import { leaveLobby, switchTeams, rtdb, startGame } from '../../firebase';
+import { BackendResponse } from '../model/BackendResponse';
+import { NEED_EVEN_TEAMS_MESSAGE, WRONG_AMOUNT_OF_PLAYERS_MESSAGE, TOO_MANY_PLAYERS } from '../utils/AlertMessages';
+import { MAX_PLAYERS, MIN_PLAYERS, PublicGameData } from '../model/GameData';
+import { handleBackendResponse, handleUnknownError, reRoutePage } from '../utils/Utils';
+import { isPlayerInGame } from '../backend/DatabaseClient';
+import { GAME_ROUTE, HOME_ROUTE } from '../routes/PageRouter';
+import { LocalStorageManager } from '../utils/LocalStorageManager';
+import { ClientData } from '../model/ClientData';
 
 const Lobby: React.FC = () => {
   const navigate = useNavigate();
@@ -19,49 +22,31 @@ const Lobby: React.FC = () => {
   const [blueTeam, setBlueTeam] = useState<string[]>(['Loading...']);
   const [areButtonsDisabled, setButtonsDisabled] = useState(false);
 
-  useEffect(() => { linkComponentStateWithGame() }, [gameId]);
-
-  const linkComponentStateWithGame = () => {
-    if (!isLocalStorageDataPresent()) {
-      clearLocalStorageAndReturnHome();
+  useEffect(() => { 
+    if (!LocalStorageManager.isLocalDataPresent()) {
+      LocalStorageManager.clearLocalData();
+      navigate(HOME_ROUTE);
     }
 
-    const {gameId, playerName, uid } = getLocalStorageData();
+    const {gameId, playerName, uid } = LocalStorageManager.getLocalData() as ClientData;
     setPlayerName(playerName!);
     setGameId(gameId!);
 
-    verifyPlayerIsInGame(gameId!, playerName!, uid!);
+    if(!isPlayerInGame(gameId!, playerName!, uid!)) {
+      LocalStorageManager.clearLocalData();
+      navigate(HOME_ROUTE);
+    }
     
     const gameRef = ref(rtdb, `GAMES/${gameId!}/public`);
-    const unsubscribe = onValue(gameRef, handleGameStateChange);
+    const unsubscribe = onValue(gameRef, updateLobbyState);
     return () => unsubscribe();
-  }
 
-  const verifyPlayerIsInGame = (gameId: string, playerName: string, uid: string) => {
-    const playerRef = ref(rtdb, `GAMES/${gameId}/private/${playerName}`);
-    get(playerRef).then((snapshot) => {
-      if (!snapshot.exists()) {
-        clearLocalStorageAndReturnHome();
-      }
-      const playerData = snapshot.val() as PlayerData;
-      console.log(playerData);
-      if (playerData.uid !== uid) {
-        clearLocalStorageAndReturnHome();
-      }
-    }).catch((error) => {
-      console.error("Error fetching game data: ", error);
-      toast.error(UNKNOWN_ERROR_MESSAGE);
-    });
-  }
+  }, [gameId]);
 
-  const handleGameStateChange = (snapshot: any) => {
+  const updateLobbyState = (snapshot: any) => {
     if (snapshot.exists()) {
       const publicGameData = snapshot.val() as PublicGameData;
-      if (publicGameData.status === GameStatus.IN_PROGRESS) {
-        navigate('/game');
-      } else if (publicGameData.status === GameStatus.GAME_OVER) {
-        clearLocalStorageAndReturnHome();
-      }
+      navigate((publicGameData.status));
 
       setHost(publicGameData.host);
       setRedTeam(publicGameData.redTeam ? publicGameData.redTeam : []);
@@ -75,12 +60,11 @@ const Lobby: React.FC = () => {
     setButtonsDisabled(true);
     verifyLocalStorageData();
 
-    switchTeams( getLocalStorageData() ).then((data) => {  
-      const response = data as BackendResponse;
-      handleBackendResponse(response);
-      setButtonsDisabled(false);
+    switchTeams( LocalStorageManager.getLocalData() ).then((data) => {  
+      handleBackendResponse(data as BackendResponse);
     }).catch((error: any) => {
       handleUnknownError(error);
+    }).finally(() => {
       setButtonsDisabled(false);
     });
   }
@@ -89,69 +73,67 @@ const Lobby: React.FC = () => {
     setButtonsDisabled(true);
     verifyLocalStorageData();
 
-    leaveLobby( getLocalStorageData() ).then((data) => {
+    leaveLobby( LocalStorageManager.getLocalData() ).then((data) => {
       const response = data as BackendResponse;
 
       if (response.data.succeeded) {
         toast.success(response.data.message);
-        clearLocalStorageData();
-        setButtonsDisabled(false);
-        navigate("/");
+        LocalStorageManager.clearLocalData();
+        navigate(HOME_ROUTE);
       } else {
         toast.error(response.data.message);
-        setButtonsDisabled(false);
       }
     }).catch((error: any) => {
       handleUnknownError(error);
+    }).finally(() => {
       setButtonsDisabled(false);
     });
   };
 
   const handleStartGame = () => {
     if (redTeam.length === blueTeam.length) {
-      toast.error(NEED_EQUAL_TEAMS);
+      toast.error(NEED_EVEN_TEAMS_MESSAGE);
       return;
     }
 
     const totalPlayerCount = redTeam.length + blueTeam.length;
     if (totalPlayerCount < MIN_PLAYERS) {
-      toast.error(NOT_ENOUGH_PLAYERS);
+      toast.error(WRONG_AMOUNT_OF_PLAYERS_MESSAGE);
       return;
     } else if (totalPlayerCount > MAX_PLAYERS) {
       toast.error(TOO_MANY_PLAYERS);
       return;
     }
 
-    setButtonsDisabled(true);
     verifyLocalStorageData();
+    setButtonsDisabled(true);
 
-    startGame( getLocalStorageData() ).then((data) => {
+    startGame( LocalStorageManager.getLocalData() ).then((data) => {
       const response = data as BackendResponse;
 
       if (response.data.succeeded) {
         toast.success(response.data.message);
-        setButtonsDisabled(false);
-        navigate("/game");
+        navigate(GAME_ROUTE);
       } else {
         toast.error(response.data.message);
-        setButtonsDisabled(false);
       }
     }).catch((error: any) => {
       handleUnknownError(error);
+    }).finally(() => {
       setButtonsDisabled(false);
-    });
+    });;
   }
 
   const verifyLocalStorageData = () => {
-    if (!isLocalStorageDataPresent()) {
+    if (!LocalStorageManager.isLocalDataPresent()) {
       clearLocalStorageAndReturnHome();
       return;
     }
   }
 
   const clearLocalStorageAndReturnHome = () => {
-    clearLocalStorageData();
-    navigate('/');
+    LocalStorageManager.clearLocalData();
+    navigate(HOME_ROUTE);
   }
 
   return (
@@ -161,7 +143,7 @@ const Lobby: React.FC = () => {
       className="p-4 bg-light bg-opacity-10 border border-white border-2 rounded-4 shadow-lg text-white" 
       style={{ maxWidth: '500px', width: '100%', marginTop: '-200px'}}
       >
-        <h2 className="text-center mb-4">Game: {gameId}</h2>
+        <h2 className="text-center mb-4">Game ID: {gameId}</h2>
 
         <div className="row mb-2">
           <div className="col-6">
