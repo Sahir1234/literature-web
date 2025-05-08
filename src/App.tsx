@@ -4,9 +4,9 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import Home from './Home';
-import Lobby from './Lobby';
-import Game from './Game';
+import Home from './routes/home/Home';
+import Lobby from './routes/lobby/Lobby';
+import Game from './routes/game/Game';
 
 function App() {
   return (
@@ -20,7 +20,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <ToastContainer 
-          autoClose={3000}
+          autoClose={2500}
           hideProgressBar={true}
           closeOnClick
           pauseOnHover={false}

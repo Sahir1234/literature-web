@@ -22,11 +22,10 @@ export interface PublicGameData {
     status: GameStatus;
     host: string;
     redTeam: [string];
-    blueTeam: [string];
+    blackTeam: [string];
 }
 
 export interface PlayerData {
     name: string;
-    uid: string;
     cards: [];
 }
