@@ -49,4 +49,5 @@ export class DatabaseClient {
       return GameStatus.GAME_OVER;
     }
   }
+
 }
